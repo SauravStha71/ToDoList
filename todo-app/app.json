@@ -5,11 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1a1b23",
+      "resizeMode": "contain"
     },
     "updates": {
       "fallbackToCacheTimeout": 0
@@ -23,14 +22,12 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#1a1b23"
       },
-      "package": "com.yourname.todoapp"
+      "package": "com.sauravstha71.todoapp"
     },
-    "extra": {
-      "eas": {
-        "projectId": "5c223fd7-1f3f-44c3-af3d-bec87721613f"
-      }
+    "web": {
+      "favicon": "./assets/icon.png"
     }
   }
 }
