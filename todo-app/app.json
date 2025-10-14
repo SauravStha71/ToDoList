@@ -7,8 +7,9 @@
     "icon": "./assets/images/checkmark.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "backgroundColor": "#1a1b23",
-      "resizeMode": "contain"
+      "image": "./assets/images/splashscreen_logo.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#000000"
     },
     "updates": {
       "fallbackToCacheTimeout": 0
@@ -28,11 +29,6 @@
     },
     "web": {
       "favicon": "./assets/images/checkmark.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "5c223fd7-1f3f-44c3-af3d-bec87721613f"
-      }
     }
   }
 }
