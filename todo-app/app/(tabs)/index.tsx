@@ -18,6 +18,7 @@ interface Task {
   text: string;
   done: boolean;
   createdAt: Date;
+  dueDate: Date;
   priority: "low" | "medium" | "high";
 }
 
@@ -33,6 +34,11 @@ export default function Index() {
   const [editText, setEditText] = useState("");
   const [editPriority, setEditPriority] = useState<"low" | "medium" | "high">("medium");
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [dueDate, setDueDate] = useState(new Date());
+  const [editDueDate, setEditDueDate] = useState(new Date());
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [showEditCalendarModal, setShowEditCalendarModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -41,7 +47,8 @@ export default function Index() {
         const parsedTasks = JSON.parse(saved);
         setTasks(parsedTasks.map((task: any) => ({
           ...task,
-          createdAt: new Date(task.createdAt)
+          createdAt: new Date(task.createdAt),
+          dueDate: new Date(task.dueDate)
         })));
       }
     };
@@ -59,11 +66,13 @@ export default function Index() {
         text: input,
         done: false,
         createdAt: new Date(),
+        dueDate: dueDate,
         priority
       };
       setTasks([...tasks, newTask]);
       setInput("");
       setPriority("medium");
+      setDueDate(new Date());
     }
   };
 
@@ -95,6 +104,7 @@ export default function Index() {
     setEditingTask(task);
     setEditText(task.text);
     setEditPriority(task.priority);
+    setEditDueDate(new Date(task.dueDate));
     setEditModalVisible(true);
   };
 
@@ -102,7 +112,7 @@ export default function Index() {
     if (editText.trim() && editingTask) {
       setTasks(tasks.map(task =>
         task.id === editingTask.id
-          ? { ...task, text: editText.trim(), priority: editPriority }
+          ? { ...task, text: editText.trim(), priority: editPriority, dueDate: editDueDate }
           : task
       ));
       setEditModalVisible(false);
@@ -150,6 +160,109 @@ export default function Index() {
     }
   };
 
+  const formatDate = (date: Date) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return "Today";
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return "Tomorrow";
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+      });
+    }
+  };
+
+  const isOverdue = (dueDate: Date) => {
+    return dueDate < new Date() && dueDate.toDateString() !== new Date().toDateString();
+  };
+
+  const openCalendar = () => {
+    setSelectedDate(dueDate);
+    setShowCalendarModal(true);
+  };
+
+  const openEditCalendar = () => {
+    setSelectedDate(editDueDate);
+    setShowEditCalendarModal(true);
+  };
+
+  const confirmDate = () => {
+    setDueDate(selectedDate);
+    setShowCalendarModal(false);
+  };
+
+  const confirmEditDate = () => {
+    setEditDueDate(selectedDate);
+    setShowEditCalendarModal(false);
+  };
+
+  const getDaysInMonth = (year: number, month: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (year: number, month: number) => {
+    return new Date(year, month, 1).getDay();
+  };
+
+  const renderCalendar = () => {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDay = getFirstDayOfMonth(year, month);
+    
+    const days = [];
+    
+    // Empty cells for days before the first day of the month
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<View key={`empty-${i}`} style={styles.calendarDayEmpty} />);
+    }
+    
+    // Days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currentDate = new Date(year, month, day);
+      const isSelected = currentDate.toDateString() === selectedDate.toDateString();
+      const isToday = currentDate.toDateString() === new Date().toDateString();
+      
+      days.push(
+        <TouchableOpacity
+          key={day}
+          style={[
+            styles.calendarDay,
+            isSelected && styles.calendarDaySelected,
+            isToday && styles.calendarDayToday
+          ]}
+          onPress={() => setSelectedDate(currentDate)}
+        >
+          <Text style={[
+            styles.calendarDayText,
+            isSelected && styles.calendarDayTextSelected,
+            isToday && !isSelected && styles.calendarDayTextToday
+          ]}>
+            {day}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    
+    return days;
+  };
+
+  const getMonthName = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+  const navigateMonth = (direction: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setMonth(selectedDate.getMonth() + direction);
+    setSelectedDate(newDate);
+  };
+
   const completedCount = tasks.filter(t => t.done).length;
   const totalCount = tasks.length;
 
@@ -176,14 +289,17 @@ export default function Index() {
             <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
               <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
             </View>
-            <Text style={styles.dateText}>
-              {item.createdAt.toLocaleDateString()}
+            <Text style={[
+              styles.dateText,
+              isOverdue(item.dueDate) && !item.done && styles.overdueText
+            ]}>
+              {formatDate(item.dueDate)}
+              {isOverdue(item.dueDate) && !item.done && " ⚠️"}
             </Text>
           </View>
         </View>
       </View>
       
-      {/* Delete button always visible */}
       <TouchableOpacity 
         style={styles.deleteButton} 
         onPress={() => deleteTask(item.id)}
@@ -223,24 +339,35 @@ export default function Index() {
           onSubmitEditing={addTask}
         />
         
-        <View style={styles.prioritySelector}>
-          {(["low", "medium", "high"] as const).map((level) => (
-            <TouchableOpacity
-              key={level}
-              style={[
-                styles.priorityOption,
-                priority === level && { backgroundColor: getPriorityColor(level) }
-              ]}
-              onPress={() => setPriority(level)}
-            >
-              <Text style={[
-                styles.priorityOptionText,
-                priority === level && styles.priorityOptionTextActive
-              ]}>
-                {getPriorityLabel(level)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.datePriorityRow}>
+          <TouchableOpacity 
+            style={styles.dateButton}
+            onPress={openCalendar}
+          >
+            <Text style={styles.dateButtonText}>
+              📅 {formatDate(dueDate)}
+            </Text>
+          </TouchableOpacity>
+          
+          <View style={styles.prioritySelector}>
+            {(["low", "medium", "high"] as const).map((level) => (
+              <TouchableOpacity
+                key={level}
+                style={[
+                  styles.priorityOption,
+                  priority === level && { backgroundColor: getPriorityColor(level) }
+                ]}
+                onPress={() => setPriority(level)}
+              >
+                <Text style={[
+                  styles.priorityOptionText,
+                  priority === level && styles.priorityOptionTextActive
+                ]}>
+                  {getPriorityLabel(level)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <TouchableOpacity 
@@ -266,6 +393,110 @@ export default function Index() {
           </View>
         }
       />
+
+      {/* Calendar Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showCalendarModal}
+        onRequestClose={() => setShowCalendarModal(false)}
+      >
+        <View style={styles.calendarModalOverlay}>
+          <View style={styles.calendarModalContent}>
+            <Text style={styles.calendarTitle}>Due Date</Text>
+            
+            <View style={styles.calendarHeader}>
+              <TouchableOpacity onPress={() => navigateMonth(-1)}>
+                <Text style={styles.calendarNavButton}>‹</Text>
+              </TouchableOpacity>
+              
+              <Text style={styles.calendarMonth}>{getMonthName(selectedDate)}</Text>
+              
+              <TouchableOpacity onPress={() => navigateMonth(1)}>
+                <Text style={styles.calendarNavButton}>›</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.calendarWeekdays}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                <Text key={index} style={styles.calendarWeekdayText}>{day}</Text>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {renderCalendar()}
+            </View>
+
+            <View style={styles.calendarButtons}>
+              <TouchableOpacity 
+                style={[styles.calendarButton, styles.cancelButton]}
+                onPress={() => setShowCalendarModal(false)}
+              >
+                <Text style={styles.calendarButtonText}>CANCEL</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.calendarButton, styles.okButton]}
+                onPress={confirmDate}
+              >
+                <Text style={styles.calendarButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Calendar Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showEditCalendarModal}
+        onRequestClose={() => setShowEditCalendarModal(false)}
+      >
+        <View style={styles.calendarModalOverlay}>
+          <View style={styles.calendarModalContent}>
+            <Text style={styles.calendarTitle}>Due Date</Text>
+            
+            <View style={styles.calendarHeader}>
+              <TouchableOpacity onPress={() => navigateMonth(-1)}>
+                <Text style={styles.calendarNavButton}>‹</Text>
+              </TouchableOpacity>
+              
+              <Text style={styles.calendarMonth}>{getMonthName(selectedDate)}</Text>
+              
+              <TouchableOpacity onPress={() => navigateMonth(1)}>
+                <Text style={styles.calendarNavButton}>›</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.calendarWeekdays}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                <Text key={index} style={styles.calendarWeekdayText}>{day}</Text>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {renderCalendar()}
+            </View>
+
+            <View style={styles.calendarButtons}>
+              <TouchableOpacity 
+                style={[styles.calendarButton, styles.cancelButton]}
+                onPress={() => setShowEditCalendarModal(false)}
+              >
+                <Text style={styles.calendarButtonText}>CANCEL</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.calendarButton, styles.okButton]}
+                onPress={confirmEditDate}
+              >
+                <Text style={styles.calendarButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Task Options Modal */}
       <Modal
@@ -345,24 +576,35 @@ export default function Index() {
               multiline
             />
             
-            <View style={styles.prioritySelector}>
-              {(["low", "medium", "high"] as const).map((level) => (
-                <TouchableOpacity
-                  key={level}
-                  style={[
-                    styles.priorityOption,
-                    editPriority === level && { backgroundColor: getPriorityColor(level) }
-                  ]}
-                  onPress={() => setEditPriority(level)}
-                >
-                  <Text style={[
-                    styles.priorityOptionText,
-                    editPriority === level && styles.priorityOptionTextActive
-                  ]}>
-                    {getPriorityLabel(level)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.datePriorityRow}>
+              <TouchableOpacity 
+                style={styles.dateButton}
+                onPress={openEditCalendar}
+              >
+                <Text style={styles.dateButtonText}>
+                  📅 {formatDate(editDueDate)}
+                </Text>
+              </TouchableOpacity>
+              
+              <View style={styles.prioritySelector}>
+                {(["low", "medium", "high"] as const).map((level) => (
+                  <TouchableOpacity
+                    key={level}
+                    style={[
+                      styles.priorityOption,
+                      editPriority === level && { backgroundColor: getPriorityColor(level) }
+                    ]}
+                    onPress={() => setEditPriority(level)}
+                  >
+                    <Text style={[
+                      styles.priorityOptionText,
+                      editPriority === level && styles.priorityOptionTextActive
+                    ]}>
+                      {getPriorityLabel(level)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
             <View style={styles.modalButtons}>
@@ -446,10 +688,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#3a3b43",
   },
-  prioritySelector: {
+  datePriorityRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 15,
+  },
+  dateButton: {
+    flex: 1,
+    backgroundColor: "#2a2b33",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#3a3b43",
+  },
+  dateButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  prioritySelector: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   priorityOption: {
     flex: 1,
@@ -560,6 +822,10 @@ const styles = StyleSheet.create({
     color: "#666",
     fontSize: 11,
   },
+  overdueText: {
+    color: "#ff4757",
+    fontWeight: "bold",
+  },
   deleteButton: {
     padding: 8,
     marginLeft: 10,
@@ -634,6 +900,119 @@ const styles = StyleSheet.create({
     backgroundColor: "#3a3b43",
   },
   modalButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  // Calendar Styles
+  calendarModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  calendarModalContent: {
+    backgroundColor: "#2a2b33",
+    borderRadius: 16,
+    padding: 20,
+    width: width * 0.9,
+    alignItems: "center",
+  },
+  calendarTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 20,
+  },
+  calendarHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 15,
+  },
+  calendarNavButton: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "bold",
+    paddingHorizontal: 15,
+  },
+  calendarMonth: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  calendarWeekdays: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+    marginBottom: 10,
+  },
+  calendarWeekdayText: {
+    color: "#888",
+    fontSize: 14,
+    fontWeight: "600",
+    width: 30,
+    textAlign: "center",
+  },
+  calendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 20,
+  },
+  calendarDayEmpty: {
+    width: 30,
+    height: 30,
+    margin: 5,
+  },
+  calendarDay: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    margin: 5,
+  },
+  calendarDaySelected: {
+    backgroundColor: "#4834d4",
+  },
+  calendarDayToday: {
+    borderWidth: 1,
+    borderColor: "#4834d4",
+  },
+  calendarDayText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  calendarDayTextSelected: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  calendarDayTextToday: {
+    color: "#4834d4",
+  },
+  calendarButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    borderTopWidth: 1,
+    borderTopColor: "#3a3b43",
+    paddingTop: 15,
+  },
+  calendarButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  okButton: {
+    backgroundColor: "#4834d4",
+  },
+  calendarButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
