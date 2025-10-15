@@ -335,44 +335,42 @@ export default function TodayScreen() {
 
       {/* Input Section */}
       <View style={styles.inputSection}>
-        <TextInput
-          placeholder="Add a task for today..."
-          placeholderTextColor="#666"
-          value={input}
-          onChangeText={setInput}
-          style={styles.input}
-          onSubmitEditing={addTask}
-        />
-        
-        <View style={styles.datePriorityRow}>
+        <View style={styles.inputRow}>
+          <TextInput
+            placeholder="Add a task for today..."
+            placeholderTextColor="#666"
+            value={input}
+            onChangeText={setInput}
+            style={styles.input}
+            onSubmitEditing={addTask}
+          />
+          
           <TouchableOpacity 
-            style={styles.dateButton}
+            style={styles.dateIconButton}
             onPress={() => openCalendar("add")}
           >
-            <Text style={styles.dateButtonText}>
-              📅 {formatDate(dueDate)}
-            </Text>
+            <Text style={styles.dateIcon}>📅</Text>
           </TouchableOpacity>
-          
-          <View style={styles.prioritySelector}>
-            {(["low", "medium", "high"] as const).map((level) => (
-              <TouchableOpacity
-                key={level}
-                style={[
-                  styles.priorityOption,
-                  priority === level && { backgroundColor: getPriorityColor(level) }
-                ]}
-                onPress={() => setPriority(level)}
-              >
-                <Text style={[
-                  styles.priorityOptionText,
-                  priority === level && styles.priorityOptionTextActive
-                ]}>
-                  {getPriorityLabel(level)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        </View>
+        
+        <View style={styles.prioritySelector}>
+          {(["low", "medium", "high"] as const).map((level) => (
+            <TouchableOpacity
+              key={level}
+              style={[
+                styles.priorityOption,
+                priority === level && { backgroundColor: getPriorityColor(level) }
+              ]}
+              onPress={() => setPriority(level)}
+            >
+              <Text style={[
+                styles.priorityOptionText,
+                priority === level && styles.priorityOptionTextActive
+              ]}>
+                {getPriorityLabel(level)}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <TouchableOpacity 
@@ -520,44 +518,42 @@ export default function TodayScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Edit Task</Text>
             
-            <TextInput
-              placeholder="Edit your task..."
-              placeholderTextColor="#666"
-              value={editText}
-              onChangeText={setEditText}
-              style={styles.input}
-              multiline
-            />
-            
-            <View style={styles.datePriorityRow}>
+            <View style={styles.inputRow}>
+              <TextInput
+                placeholder="Edit your task..."
+                placeholderTextColor="#666"
+                value={editText}
+                onChangeText={setEditText}
+                style={styles.input}
+                multiline
+              />
+              
               <TouchableOpacity 
-                style={styles.dateButton}
+                style={styles.dateIconButton}
                 onPress={() => openCalendar("edit")}
               >
-                <Text style={styles.dateButtonText}>
-                  📅 {formatDate(editDueDate)}
-                </Text>
+                <Text style={styles.dateIcon}>📅</Text>
               </TouchableOpacity>
-              
-              <View style={styles.prioritySelector}>
-                {(["low", "medium", "high"] as const).map((level) => (
-                  <TouchableOpacity
-                    key={level}
-                    style={[
-                      styles.priorityOption,
-                      editPriority === level && { backgroundColor: getPriorityColor(level) }
-                    ]}
-                    onPress={() => setEditPriority(level)}
-                  >
-                    <Text style={[
-                      styles.priorityOptionText,
-                      editPriority === level && styles.priorityOptionTextActive
-                    ]}>
-                      {getPriorityLabel(level)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            </View>
+            
+            <View style={styles.prioritySelector}>
+              {(["low", "medium", "high"] as const).map((level) => (
+                <TouchableOpacity
+                  key={level}
+                  style={[
+                    styles.priorityOption,
+                    editPriority === level && { backgroundColor: getPriorityColor(level) }
+                  ]}
+                  onPress={() => setEditPriority(level)}
+                >
+                  <Text style={[
+                    styles.priorityOptionText,
+                    editPriority === level && styles.priorityOptionTextActive
+                  ]}>
+                    {getPriorityLabel(level)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             <View style={styles.modalButtons}>
@@ -631,40 +627,39 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#1a1b23",
   },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
   input: {
+    flex: 1,
     backgroundColor: "#2a2b33",
     color: "#ffffff",
     padding: 16,
     borderRadius: 12,
     fontSize: 16,
-    marginBottom: 15,
     borderWidth: 1,
     borderColor: "#3a3b43",
   },
-  datePriorityRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 15,
-  },
-  dateButton: {
-    flex: 1,
+  dateIconButton: {
+    width: 44,
+    height: 56,
     backgroundColor: "#2a2b33",
-    padding: 12,
     borderRadius: 8,
+    justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginLeft: 10,
     borderWidth: 1,
     borderColor: "#3a3b43",
   },
-  dateButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
+  dateIcon: {
+    fontSize: 18,
   },
   prioritySelector: {
-    flex: 1,
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: 15,
   },
   priorityOption: {
     flex: 1,
