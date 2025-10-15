@@ -29,6 +29,11 @@
     },
     "web": {
       "favicon": "./assets/images/checkmark.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5c223fd7-1f3f-44c3-af3d-bec87721613f"
+      }
     }
   }
 }
