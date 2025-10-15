@@ -12,6 +12,7 @@ import {
   Dimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 
 interface Task {
   id: string;
@@ -24,7 +25,7 @@ interface Task {
 
 const { width } = Dimensions.get("window");
 
-export default function Index() {
+export default function TodayScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [input, setInput] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -33,31 +34,49 @@ export default function Index() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editText, setEditText] = useState("");
   const [editPriority, setEditPriority] = useState<"low" | "medium" | "high">("medium");
+  const [editDueDate, setEditDueDate] = useState(new Date());
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [dueDate, setDueDate] = useState(new Date());
-  const [editDueDate, setEditDueDate] = useState(new Date());
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [showEditCalendarModal, setShowEditCalendarModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [calendarMode, setCalendarMode] = useState<"add" | "edit">("add");
 
-  useEffect(() => {
-    const loadTasks = async () => {
-      const saved = await AsyncStorage.getItem("tasks");
-      if (saved) {
-        const parsedTasks = JSON.parse(saved);
-        setTasks(parsedTasks.map((task: any) => ({
-          ...task,
-          createdAt: new Date(task.createdAt),
-          dueDate: new Date(task.dueDate)
-        })));
-      }
-    };
-    loadTasks();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadTasks();
+    }, [])
+  );
+
+  const loadTasks = async () => {
+    const saved = await AsyncStorage.getItem("tasks");
+    if (saved) {
+      const parsedTasks = JSON.parse(saved);
+      setTasks(parsedTasks.map((task: any) => ({
+        ...task,
+        createdAt: new Date(task.createdAt),
+        dueDate: new Date(task.dueDate)
+      })));
+    }
+  };
 
   useEffect(() => {
     AsyncStorage.setItem("tasks", JSON.stringify(tasks));
   }, [tasks]);
+
+  // Filter tasks for today only
+  const getTodaysTasks = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return tasks.filter(task => {
+      const taskDueDate = new Date(task.dueDate);
+      taskDueDate.setHours(0, 0, 0, 0);
+      return taskDueDate.getTime() === today.getTime();
+    });
+  };
+
+  const todaysTasks = getTodaysTasks();
 
   const addTask = () => {
     if (input.trim()) {
@@ -122,7 +141,7 @@ export default function Index() {
   };
 
   const clearCompleted = () => {
-    const completedTasks = tasks.filter(t => t.done);
+    const completedTasks = todaysTasks.filter(t => t.done);
     if (completedTasks.length === 0) {
       Alert.alert("No completed tasks to clear");
       return;
@@ -136,7 +155,7 @@ export default function Index() {
         { 
           text: "Clear", 
           style: "destructive",
-          onPress: () => setTasks(tasks.filter(t => !t.done))
+          onPress: () => setTasks(tasks.filter(t => !todaysTasks.some(td => td.id === t.id) || !t.done))
         }
       ]
     );
@@ -178,28 +197,23 @@ export default function Index() {
     }
   };
 
-  const isOverdue = (dueDate: Date) => {
-    return dueDate < new Date() && dueDate.toDateString() !== new Date().toDateString();
-  };
-
-  const openCalendar = () => {
-    setSelectedDate(dueDate);
+  const openCalendar = (mode: "add" | "edit") => {
+    setCalendarMode(mode);
+    if (mode === "add") {
+      setSelectedDate(dueDate);
+    } else {
+      setSelectedDate(editDueDate);
+    }
     setShowCalendarModal(true);
   };
 
-  const openEditCalendar = () => {
-    setSelectedDate(editDueDate);
-    setShowEditCalendarModal(true);
-  };
-
   const confirmDate = () => {
-    setDueDate(selectedDate);
+    if (calendarMode === "add") {
+      setDueDate(selectedDate);
+    } else {
+      setEditDueDate(selectedDate);
+    }
     setShowCalendarModal(false);
-  };
-
-  const confirmEditDate = () => {
-    setEditDueDate(selectedDate);
-    setShowEditCalendarModal(false);
   };
 
   const getDaysInMonth = (year: number, month: number) => {
@@ -218,12 +232,10 @@ export default function Index() {
     
     const days = [];
     
-    // Empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
       days.push(<View key={`empty-${i}`} style={styles.calendarDayEmpty} />);
     }
     
-    // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(year, month, day);
       const isSelected = currentDate.toDateString() === selectedDate.toDateString();
@@ -263,8 +275,8 @@ export default function Index() {
     setSelectedDate(newDate);
   };
 
-  const completedCount = tasks.filter(t => t.done).length;
-  const totalCount = tasks.length;
+  const completedCount = todaysTasks.filter(t => t.done).length;
+  const totalCount = todaysTasks.length;
 
   const renderTask = ({ item }: { item: Task }) => (
     <TouchableOpacity
@@ -289,13 +301,6 @@ export default function Index() {
             <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
               <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
             </View>
-            <Text style={[
-              styles.dateText,
-              isOverdue(item.dueDate) && !item.done && styles.overdueText
-            ]}>
-              {formatDate(item.dueDate)}
-              {isOverdue(item.dueDate) && !item.done && " ⚠️"}
-            </Text>
           </View>
         </View>
       </View>
@@ -315,7 +320,7 @@ export default function Index() {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>📝 Todo Master</Text>
+        <Text style={styles.title}>📝 Today's Tasks</Text>
         <View style={styles.stats}>
           <Text style={styles.statsText}>
             {completedCount}/{totalCount} completed
@@ -331,7 +336,7 @@ export default function Index() {
       {/* Input Section */}
       <View style={styles.inputSection}>
         <TextInput
-          placeholder="What needs to be done?"
+          placeholder="Add a task for today..."
           placeholderTextColor="#666"
           value={input}
           onChangeText={setInput}
@@ -342,7 +347,7 @@ export default function Index() {
         <View style={styles.datePriorityRow}>
           <TouchableOpacity 
             style={styles.dateButton}
-            onPress={openCalendar}
+            onPress={() => openCalendar("add")}
           >
             <Text style={styles.dateButtonText}>
               📅 {formatDate(dueDate)}
@@ -381,14 +386,14 @@ export default function Index() {
 
       {/* Task List */}
       <FlatList
-        data={tasks}
+        data={todaysTasks}
         keyExtractor={(item) => item.id}
         renderItem={renderTask}
         style={styles.list}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No tasks yet</Text>
+            <Text style={styles.emptyStateText}>No tasks for today</Text>
             <Text style={styles.emptyStateSubtext}>Add a task above to get started!</Text>
           </View>
         }
@@ -438,58 +443,6 @@ export default function Index() {
               <TouchableOpacity 
                 style={[styles.calendarButton, styles.okButton]}
                 onPress={confirmDate}
-              >
-                <Text style={styles.calendarButtonText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit Calendar Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showEditCalendarModal}
-        onRequestClose={() => setShowEditCalendarModal(false)}
-      >
-        <View style={styles.calendarModalOverlay}>
-          <View style={styles.calendarModalContent}>
-            <Text style={styles.calendarTitle}>Due Date</Text>
-            
-            <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={() => navigateMonth(-1)}>
-                <Text style={styles.calendarNavButton}>‹</Text>
-              </TouchableOpacity>
-              
-              <Text style={styles.calendarMonth}>{getMonthName(selectedDate)}</Text>
-              
-              <TouchableOpacity onPress={() => navigateMonth(1)}>
-                <Text style={styles.calendarNavButton}>›</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.calendarWeekdays}>
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                <Text key={index} style={styles.calendarWeekdayText}>{day}</Text>
-              ))}
-            </View>
-
-            <View style={styles.calendarGrid}>
-              {renderCalendar()}
-            </View>
-
-            <View style={styles.calendarButtons}>
-              <TouchableOpacity 
-                style={[styles.calendarButton, styles.cancelButton]}
-                onPress={() => setShowEditCalendarModal(false)}
-              >
-                <Text style={styles.calendarButtonText}>CANCEL</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.calendarButton, styles.okButton]}
-                onPress={confirmEditDate}
               >
                 <Text style={styles.calendarButtonText}>OK</Text>
               </TouchableOpacity>
@@ -579,7 +532,7 @@ export default function Index() {
             <View style={styles.datePriorityRow}>
               <TouchableOpacity 
                 style={styles.dateButton}
-                onPress={openEditCalendar}
+                onPress={() => openCalendar("edit")}
               >
                 <Text style={styles.dateButtonText}>
                   📅 {formatDate(editDueDate)}
@@ -817,14 +770,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 10,
     fontWeight: "700",
-  },
-  dateText: {
-    color: "#666",
-    fontSize: 11,
-  },
-  overdueText: {
-    color: "#ff4757",
-    fontWeight: "bold",
   },
   deleteButton: {
     padding: 8,
