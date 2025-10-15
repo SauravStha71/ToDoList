@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import TaskFormModal from "../../components/TaskFormModal";
+import { saveTasks, loadTasks } from "../utils/storage";
+
 import {
   View,
   Text,
@@ -20,6 +23,7 @@ interface Task {
   createdAt: Date;
   priority: "low" | "medium" | "high";
 }
+const [formVisible, setFormVisible] = useState(false);
 
 const { width } = Dimensions.get("window");
 
