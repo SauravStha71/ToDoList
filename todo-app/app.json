@@ -8,8 +8,8 @@
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/images/splashscreen_logo.png",
-      "resizeMode": "cover",
-      "backgroundColor": "#000000"
+      "resizeMode": "contain",
+      "backgroundColor": "#2D1B69"
     },
     "updates": {
       "fallbackToCacheTimeout": 0
