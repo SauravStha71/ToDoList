@@ -42,7 +42,15 @@ export default function AllTasksScreen() {
     const saved = await AsyncStorage.getItem("tasks");
     if (saved) {
       const parsedTasks = JSON.parse(saved);
-      setTasks(parsedTasks.map((task: any) => ({
+      
+      // Filter out invalid dates (December 31, 1969)
+      const validTasks = parsedTasks.filter((task: any) => {
+        const dueDate = new Date(task.dueDate);
+        // Filter out the epoch date (December 31, 1969)
+        return dueDate.getFullYear() > 1970;
+      });
+      
+      setTasks(validTasks.map((task: any) => ({
         ...task,
         createdAt: new Date(task.createdAt),
         dueDate: new Date(task.dueDate)
@@ -58,7 +66,9 @@ export default function AllTasksScreen() {
     const otherTasks = tasks.filter(task => {
       const taskDueDate = new Date(task.dueDate);
       taskDueDate.setHours(0, 0, 0, 0);
-      return taskDueDate.getTime() !== today.getTime();
+      
+      // Filter out invalid dates AND today's tasks
+      return taskDueDate.getFullYear() > 1970 && taskDueDate.getTime() !== today.getTime();
     });
 
     // Group tasks by date

@@ -36,7 +36,11 @@ export default function TodayScreen() {
   const [editPriority, setEditPriority] = useState<"low" | "medium" | "high">("medium");
   const [editDueDate, setEditDueDate] = useState(new Date());
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [dueDate, setDueDate] = useState(new Date());
+  const [dueDate, setDueDate] = useState(() => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+});
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [showEditCalendarModal, setShowEditCalendarModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -79,21 +83,25 @@ export default function TodayScreen() {
   const todaysTasks = getTodaysTasks();
 
   const addTask = () => {
-    if (input.trim()) {
-      const newTask: Task = {
-        id: Date.now().toString(),
-        text: input,
-        done: false,
-        createdAt: new Date(),
-        dueDate: dueDate,
-        priority
-      };
-      setTasks([...tasks, newTask]);
-      setInput("");
-      setPriority("medium");
-      setDueDate(new Date());
-    }
-  };
+  if (input.trim()) {
+    // Always use today's date for tasks
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day
+    
+    const newTask: Task = {
+      id: Date.now().toString(),
+      text: input,
+      done: false,
+      createdAt: new Date(),
+      dueDate: today, // Always use today's date
+      priority
+    };
+    setTasks([...tasks, newTask]);
+    setInput("");
+    setPriority("medium");
+    setDueDate(today);
+  }
+};
 
   const toggleTask = (id: string) => {
     setTasks(tasks.map(t => (t.id === id ? { ...t, done: !t.done } : t)));
@@ -140,26 +148,30 @@ export default function TodayScreen() {
     }
   };
 
-  const clearCompleted = () => {
-    const completedTasks = todaysTasks.filter(t => t.done);
-    if (completedTasks.length === 0) {
-      Alert.alert("No completed tasks to clear");
-      return;
-    }
+const clearCompleted = () => {
+  const completedTasks = todaysTasks.filter(t => t.done);
+  if (completedTasks.length === 0) {
+    Alert.alert("No completed tasks to clear");
+    return;
+  }
 
-    Alert.alert(
-      "Clear Completed",
-      `Delete ${completedTasks.length} completed task${completedTasks.length > 1 ? 's' : ''}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Clear", 
-          style: "destructive",
-          onPress: () => setTasks(tasks.filter(t => !todaysTasks.some(td => td.id === t.id) || !t.done))
+  Alert.alert(
+    "Clear Completed",
+    `Delete ${completedTasks.length} completed task${completedTasks.length > 1 ? 's' : ''}?`,
+    [
+      { text: "Cancel", style: "cancel" },
+      { 
+        text: "Clear", 
+        style: "destructive",
+        onPress: () => {
+          // Only remove completed tasks that are in today's list
+          const completedIds = new Set(completedTasks.map(t => t.id));
+          setTasks(tasks.filter(task => !completedIds.has(task.id)));
         }
-      ]
-    );
-  };
+      }
+    ]
+  );
+};
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
