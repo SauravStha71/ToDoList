@@ -252,15 +252,6 @@ export default function Index() {
     }
   };
 
-  const getPriorityIcon = (priority: string) => {
-    switch (priority) {
-      case "high": return "🔥";
-      case "medium": return "⚡";
-      case "low": return "💧";
-      default: return "⚡";
-    }
-  };
-
   const totalCount = tasks.length;
 
   const renderTask = ({ item }: { item: Task }) => (
@@ -285,13 +276,8 @@ export default function Index() {
             {item.text}
           </Text>
           <View style={styles.taskMeta}>
-            <View style={styles.priorityContainer}>
-              <Text style={styles.priorityIcon}>
-                {getPriorityIcon(item.priority)}
-              </Text>
-              <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
-                <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
-              </View>
+            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
+              <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
             </View>
             <Text style={styles.dateText}>
               {item.createdAt.toLocaleDateString()}
@@ -653,14 +639,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  priorityContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  priorityIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
   priorityBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -679,12 +657,10 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 8,
     marginLeft: 12,
-    backgroundColor: "rgba(255, 71, 87, 0.1)",
-    borderRadius: 8,
   },
   deleteText: {
     color: "#ff4757",
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "bold",
   },
   emptyState: {

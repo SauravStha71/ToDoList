@@ -204,15 +204,6 @@ export default function CompletedScreen() {
     }
   };
 
-  const getPriorityIcon = (priority: string) => {
-    switch (priority) {
-      case "high": return "🔥";
-      case "medium": return "⚡";
-      case "low": return "💧";
-      default: return "⚡";
-    }
-  };
-
   const renderTask = ({ item }: { item: Task }) => (
     <TouchableOpacity
       style={[
@@ -236,13 +227,8 @@ export default function CompletedScreen() {
             {item.text}
           </Text>
           <View style={styles.taskMeta}>
-            <View style={styles.priorityContainer}>
-              <Text style={styles.priorityIcon}>
-                {getPriorityIcon(item.priority)}
-              </Text>
-              <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
-                <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
-              </View>
+            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
+              <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
             </View>
             <Text style={styles.dateText}>
               {new Date(item.createdAt).toLocaleDateString()}
@@ -300,7 +286,7 @@ export default function CompletedScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>✅</Text>
+            <Text style={styles.emptyIcon}>✓</Text>
             <Text style={styles.emptyStateText}>No completed tasks yet</Text>
             <Text style={styles.emptyStateSubtext}>
               Tasks you mark as complete will appear here
@@ -316,7 +302,7 @@ export default function CompletedScreen() {
         ListFooterComponent={
           completedTasks.length > 0 ? (
             <View style={styles.footer}>
-              <Text style={styles.footerIcon}>🎯</Text>
+              <Text style={styles.footerIcon}>✓</Text>
               <Text style={styles.footerText}>
                 {completedTasks.length} task{completedTasks.length !== 1 ? 's' : ''} completed
               </Text>
@@ -350,7 +336,7 @@ export default function CompletedScreen() {
                   setModalVisible(false);
                 }}
               >
-                <Text style={styles.modalButtonText}>↶ Mark Incomplete</Text>
+                <Text style={styles.modalButtonText}>Mark Incomplete</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -360,7 +346,7 @@ export default function CompletedScreen() {
                   setModalVisible(false);
                 }}
               >
-                <Text style={styles.modalButtonText}>🗑️ Delete Task</Text>
+                <Text style={styles.modalButtonText}>Delete Task</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -382,14 +368,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#1a1b23",
   },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: height * 0.06,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: "#2a2b33",
-    backgroundColor: "#1a1b23",
-  },
+header: {
+  paddingHorizontal: 24,
+  paddingTop: 60, 
+  paddingBottom: 24,
+  borderBottomWidth: 1,
+  borderBottomColor: "#2a2b33",
+  backgroundColor: "#1a1b23",
+},
   titleContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -491,14 +477,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  priorityContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  priorityIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
   priorityBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -517,12 +495,10 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 8,
     marginLeft: 12,
-    backgroundColor: "rgba(255, 71, 87, 0.1)",
-    borderRadius: 8,
   },
   deleteText: {
     color: "#ff4757",
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "bold",
   },
   emptyState: {
@@ -535,6 +511,7 @@ const styles = StyleSheet.create({
     fontSize: 64,
     marginBottom: 24,
     opacity: 0.7,
+    color: "#2ed573",
   },
   emptyStateText: {
     color: "#fff",
@@ -575,6 +552,7 @@ const styles = StyleSheet.create({
   footerIcon: {
     fontSize: 32,
     marginBottom: 12,
+    color: "#2ed573",
   },
   footerText: {
     color: "#fff",
