@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   StatusBar,
   Dimensions,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface Task {
@@ -34,23 +35,45 @@ export default function Index() {
   const [editPriority, setEditPriority] = useState<"low" | "medium" | "high">("medium");
   const [editModalVisible, setEditModalVisible] = useState(false);
 
-  useEffect(() => {
-    const loadTasks = async () => {
-      const saved = await AsyncStorage.getItem("tasks");
-      if (saved) {
-        const parsedTasks = JSON.parse(saved);
-        setTasks(parsedTasks.map((task: any) => ({
+  // Load ALL tasks and filter only active ones
+  const loadTasks = async () => {
+    try {
+      const tasksJson = await AsyncStorage.getItem("tasks");
+      if (tasksJson) {
+        const allTasks: Task[] = JSON.parse(tasksJson).map((task: any) => ({
           ...task,
           createdAt: new Date(task.createdAt)
-        })));
+        }));
+        
+        // Filter only active (not completed) tasks
+        const activeTasks = allTasks.filter(task => !task.done);
+        
+        // Sort by priority: high -> medium -> low
+        const sortedTasks = activeTasks.sort((a, b) => {
+          const priorityOrder = { high: 3, medium: 2, low: 1 };
+          return priorityOrder[b.priority] - priorityOrder[a.priority];
+        });
+        
+        setTasks(sortedTasks);
+      } else {
+        setTasks([]);
       }
-    };
-    loadTasks();
-  }, []);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      setTasks([]);
+    }
+  };
+
+  // Refresh tasks when page comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadTasks();
+    }, [])
+  );
 
   useEffect(() => {
-    AsyncStorage.setItem("tasks", JSON.stringify(tasks));
-  }, [tasks]);
+    loadTasks();
+  }, []);
 
   const addTask = () => {
     if (input.trim()) {
@@ -61,14 +84,86 @@ export default function Index() {
         createdAt: new Date(),
         priority
       };
-      setTasks([...tasks, newTask]);
+      
+      // Add new task and re-sort by priority
+      const updatedTasks = [...tasks, newTask].sort((a, b) => {
+        const priorityOrder = { high: 3, medium: 2, low: 1 };
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      });
+      
+      setTasks(updatedTasks);
+      saveTasksToStorage([...tasks, newTask]);
       setInput("");
       setPriority("medium");
     }
   };
 
-  const toggleTask = (id: string) => {
-    setTasks(tasks.map(t => (t.id === id ? { ...t, done: !t.done } : t)));
+  // Save tasks to AsyncStorage
+  const saveTasksToStorage = async (tasksToSave: Task[]) => {
+    try {
+      // Get existing tasks first
+      const existingTasksJson = await AsyncStorage.getItem("tasks");
+      let allTasks: Task[] = [];
+      
+      if (existingTasksJson) {
+        allTasks = JSON.parse(existingTasksJson).map((task: any) => ({
+          ...task,
+          createdAt: new Date(task.createdAt)
+        }));
+      }
+      
+      // Update or add tasks
+      tasksToSave.forEach(task => {
+        const existingIndex = allTasks.findIndex(t => t.id === task.id);
+        if (existingIndex >= 0) {
+          allTasks[existingIndex] = task;
+        } else {
+          allTasks.push(task);
+        }
+      });
+      
+      await AsyncStorage.setItem("tasks", JSON.stringify(allTasks));
+    } catch (error) {
+      console.error('Error saving tasks:', error);
+    }
+  };
+
+  const toggleTask = async (id: string) => {
+    // Find the task to mark as completed
+    const taskToComplete = tasks.find(t => t.id === id);
+    if (taskToComplete) {
+      // Mark task as completed
+      const completedTask = { ...taskToComplete, done: true };
+      
+      // Remove from current view (homepage)
+      const updatedTasks = tasks.filter(t => t.id !== id);
+      
+      // Re-sort remaining tasks
+      const sortedTasks = updatedTasks.sort((a, b) => {
+        const priorityOrder = { high: 3, medium: 2, low: 1 };
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      });
+      
+      setTasks(sortedTasks);
+      
+      // Save the completed task to storage
+      const existingTasksJson = await AsyncStorage.getItem("tasks");
+      let allTasks: Task[] = [];
+      
+      if (existingTasksJson) {
+        allTasks = JSON.parse(existingTasksJson).map((task: any) => ({
+          ...task,
+          createdAt: new Date(task.createdAt)
+        }));
+      }
+      
+      // Update the task in storage to mark it as completed
+      const updatedAllTasks = allTasks.map(task => 
+        task.id === id ? completedTask : task
+      );
+      
+      await AsyncStorage.setItem("tasks", JSON.stringify(updatedAllTasks));
+    }
   };
 
   const deleteTask = (id: string) => {
@@ -80,7 +175,23 @@ export default function Index() {
         { 
           text: "Delete", 
           style: "destructive",
-          onPress: () => setTasks(tasks.filter(t => t.id !== id))
+          onPress: async () => {
+            const updatedTasks = tasks.filter(t => t.id !== id);
+            // Re-sort after deletion
+            const sortedTasks = updatedTasks.sort((a, b) => {
+              const priorityOrder = { high: 3, medium: 2, low: 1 };
+              return priorityOrder[b.priority] - priorityOrder[a.priority];
+            });
+            setTasks(sortedTasks);
+            
+            // Also remove from storage
+            const existingTasksJson = await AsyncStorage.getItem("tasks");
+            if (existingTasksJson) {
+              const allTasks: Task[] = JSON.parse(existingTasksJson);
+              const updatedAllTasks = allTasks.filter(task => task.id !== id);
+              await AsyncStorage.setItem("tasks", JSON.stringify(updatedAllTasks));
+            }
+          }
         }
       ]
     );
@@ -98,38 +209,29 @@ export default function Index() {
     setEditModalVisible(true);
   };
 
-  const saveEditedTask = () => {
+  const saveEditedTask = async () => {
     if (editText.trim() && editingTask) {
-      setTasks(tasks.map(task =>
+      const updatedTasks = tasks.map(task =>
         task.id === editingTask.id
           ? { ...task, text: editText.trim(), priority: editPriority }
           : task
-      ));
+      );
+      
+      // Re-sort after editing
+      const sortedTasks = updatedTasks.sort((a, b) => {
+        const priorityOrder = { high: 3, medium: 2, low: 1 };
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      });
+      
+      setTasks(sortedTasks);
+      
+      // Save to storage
+      await saveTasksToStorage(sortedTasks);
+      
       setEditModalVisible(false);
       setEditingTask(null);
       setEditText("");
     }
-  };
-
-  const clearCompleted = () => {
-    const completedTasks = tasks.filter(t => t.done);
-    if (completedTasks.length === 0) {
-      Alert.alert("No completed tasks to clear");
-      return;
-    }
-
-    Alert.alert(
-      "Clear Completed",
-      `Delete ${completedTasks.length} completed task${completedTasks.length > 1 ? 's' : ''}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Clear", 
-          style: "destructive",
-          onPress: () => setTasks(tasks.filter(t => !t.done))
-        }
-      ]
-    );
   };
 
   const getPriorityColor = (priority: string) => {
@@ -150,31 +252,46 @@ export default function Index() {
     }
   };
 
-  const completedCount = tasks.filter(t => t.done).length;
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case "high": return "🔥";
+      case "medium": return "⚡";
+      case "low": return "💧";
+      default: return "⚡";
+    }
+  };
+
   const totalCount = tasks.length;
 
   const renderTask = ({ item }: { item: Task }) => (
     <TouchableOpacity
       style={[
         styles.taskItem,
-        item.done && styles.taskItemDone,
         { borderLeftColor: getPriorityColor(item.priority) }
       ]}
-      onPress={() => toggleTask(item.id)}
       onLongPress={() => showTaskOptions(item)}
       delayLongPress={300}
     >
       <View style={styles.taskContent}>
-        <View style={[styles.checkbox, item.done && styles.checkboxDone]}>
-          {item.done && <Text style={styles.checkmark}>✓</Text>}
-        </View>
+        {/* Empty checkbox - becomes checked when pressed */}
+        <TouchableOpacity 
+          style={styles.checkbox}
+          onPress={() => toggleTask(item.id)}
+        >
+          {/* Checkmark only appears when task is done, but in homepage they're all not done */}
+        </TouchableOpacity>
         <View style={styles.taskTextContainer}>
-          <Text style={[styles.taskText, item.done && styles.taskTextDone]}>
+          <Text style={styles.taskText}>
             {item.text}
           </Text>
           <View style={styles.taskMeta}>
-            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
-              <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
+            <View style={styles.priorityContainer}>
+              <Text style={styles.priorityIcon}>
+                {getPriorityIcon(item.priority)}
+              </Text>
+              <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
+                <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
+              </View>
             </View>
             <Text style={styles.dateText}>
               {item.createdAt.toLocaleDateString()}
@@ -183,7 +300,6 @@ export default function Index() {
         </View>
       </View>
       
-      {/* Delete button always visible */}
       <TouchableOpacity 
         style={styles.deleteButton} 
         onPress={() => deleteTask(item.id)}
@@ -199,16 +315,14 @@ export default function Index() {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>📝 Todo Master</Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.titleIcon}>📝</Text>
+          <Text style={styles.title}>Todo Master</Text>
+        </View>
         <View style={styles.stats}>
           <Text style={styles.statsText}>
-            {completedCount}/{totalCount} completed
+            {totalCount} task{totalCount !== 1 ? 's' : ''} remaining
           </Text>
-          {completedCount > 0 && (
-            <TouchableOpacity onPress={clearCompleted} style={styles.clearButton}>
-              <Text style={styles.clearButtonText}>Clear Completed</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
@@ -258,9 +372,11 @@ export default function Index() {
         keyExtractor={(item) => item.id}
         renderItem={renderTask}
         style={styles.list}
+        contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📋</Text>
             <Text style={styles.emptyStateText}>No tasks yet</Text>
             <Text style={styles.emptyStateSubtext}>Add a task above to get started!</Text>
           </View>
@@ -299,9 +415,7 @@ export default function Index() {
                   setModalVisible(false);
                 }}
               >
-                <Text style={styles.modalButtonText}>
-                  {selectedTask?.done ? "Mark Incomplete" : "Mark Complete"}
-                </Text>
+                <Text style={styles.modalButtonText}>Mark Complete</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -398,18 +512,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#1a1b23",
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 24,
     borderBottomWidth: 1,
     borderBottomColor: "#2a2b33",
     backgroundColor: "#1a1b23",
+  },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  titleIcon: {
+    fontSize: 28,
+    marginRight: 12,
   },
   title: {
     fontSize: 32,
     fontWeight: "800",
     color: "#ffffff",
-    marginBottom: 10,
   },
   stats: {
     flexDirection: "row",
@@ -419,17 +541,6 @@ const styles = StyleSheet.create({
   statsText: {
     fontSize: 16,
     color: "#888",
-    fontWeight: "600",
-  },
-  clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#ff4757",
-    borderRadius: 15,
-  },
-  clearButtonText: {
-    color: "#fff",
-    fontSize: 12,
     fontWeight: "600",
   },
   inputSection: {
@@ -486,22 +597,29 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
-    paddingHorizontal: 20,
+  },
+  listContent: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   taskItem: {
     backgroundColor: "#2a2b33",
-    marginBottom: 10,
-    borderRadius: 12,
-    padding: 16,
+    marginBottom: 12,
+    borderRadius: 16,
+    padding: 20,
     borderLeftWidth: 4,
-    borderLeftColor: "#4834d4",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-  },
-  taskItemDone: {
-    opacity: 0.7,
-    backgroundColor: "#252631",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   taskContent: {
     flexDirection: "row",
@@ -509,24 +627,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   checkbox: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     borderRadius: 6,
     borderWidth: 2,
     borderColor: "#4834d4",
-    marginRight: 12,
+    marginRight: 16,
     marginTop: 2,
     justifyContent: "center",
     alignItems: "center",
-  },
-  checkboxDone: {
-    backgroundColor: "#4834d4",
-    borderColor: "#4834d4",
-  },
-  checkmark: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "bold",
+    backgroundColor: "#2a2b33",
   },
   taskTextContainer: {
     flex: 1,
@@ -535,86 +645,106 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "500",
-    marginBottom: 8,
-  },
-  taskTextDone: {
-    textDecorationLine: "line-through",
-    color: "#888",
+    marginBottom: 12,
+    lineHeight: 22,
   },
   taskMeta: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+  priorityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  priorityIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
   priorityBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   priorityText: {
     color: "#fff",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
   },
   dateText: {
     color: "#666",
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: "500",
   },
   deleteButton: {
     padding: 8,
-    marginLeft: 10,
+    marginLeft: 12,
+    backgroundColor: "rgba(255, 71, 87, 0.1)",
+    borderRadius: 8,
   },
   deleteText: {
     color: "#ff4757",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
   },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
+    paddingVertical: 100,
+    paddingHorizontal: 40,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 24,
+    opacity: 0.7,
   },
   emptyStateText: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 12,
+    textAlign: "center",
   },
   emptyStateSubtext: {
     color: "#666",
-    fontSize: 14,
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 22,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   modalContent: {
     backgroundColor: "#2a2b33",
     borderRadius: 20,
-    padding: 24,
-    width: width * 0.85,
+    padding: 28,
+    width: "100%",
+    maxWidth: 400,
     alignItems: "center",
   },
   modalTitle: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   modalTaskText: {
     color: "#888",
-    fontSize: 14,
+    fontSize: 16,
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 28,
+    lineHeight: 22,
   },
   modalButtons: {
     width: "100%",
   },
   modalButton: {
-    padding: 16,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 14,
     alignItems: "center",
     marginBottom: 12,
   },

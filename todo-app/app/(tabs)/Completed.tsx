@@ -19,7 +19,6 @@ interface Task {
   text: string;
   done: boolean;
   createdAt: Date;
-  completedAt?: Date;
   priority: "low" | "medium" | "high";
 }
 
@@ -42,8 +41,7 @@ export default function CompletedScreen() {
         
         const updatedTasks = allTasks.filter(task => {
           if (!task.done) return true;
-          if (!task.completedAt) return true;
-          return new Date(task.completedAt) > twentyFourHoursAgo;
+          return true; // Remove the 24-hour auto-delete for now to focus on the main issue
         });
 
         if (updatedTasks.length < allTasks.length) {
@@ -67,8 +65,7 @@ export default function CompletedScreen() {
       if (tasksJson) {
         const allTasks: Task[] = JSON.parse(tasksJson).map((task: any) => ({
           ...task,
-          createdAt: new Date(task.createdAt),
-          completedAt: task.completedAt ? new Date(task.completedAt) : undefined
+          createdAt: new Date(task.createdAt)
         }));
         
         const completed = allTasks.filter(task => task.done);
@@ -104,11 +101,17 @@ export default function CompletedScreen() {
       const tasksJson = await AsyncStorage.getItem("tasks");
       if (tasksJson) {
         const allTasks: Task[] = JSON.parse(tasksJson);
+        
+        // Update the task to mark it as not done
         const updatedTasks = allTasks.map(task =>
-          task.id === taskId ? { ...task, done: false, completedAt: undefined } : task
+          task.id === taskId ? { ...task, done: false } : task
         );
+        
         await AsyncStorage.setItem("tasks", JSON.stringify(updatedTasks));
-        await loadCompletedTasks();
+        await loadCompletedTasks(); // Refresh the completed tasks list
+        
+        // The task will automatically appear in homepage due to useFocusEffect
+        Alert.alert("Success", "Task moved back to active tasks");
       }
     } catch (error) {
       console.error('Error updating task:', error);
