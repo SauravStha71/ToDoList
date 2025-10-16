@@ -36,12 +36,7 @@ export default function TodayScreen() {
   const [editPriority, setEditPriority] = useState<"low" | "medium" | "high">("medium");
   const [editDueDate, setEditDueDate] = useState(new Date());
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [dueDate, setDueDate] = useState(() => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-});
-  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [dueDate, setDueDate] = useState(new Date());  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [showEditCalendarModal, setShowEditCalendarModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarMode, setCalendarMode] = useState<"add" | "edit">("add");
@@ -82,24 +77,20 @@ export default function TodayScreen() {
 
   const todaysTasks = getTodaysTasks();
 
-  const addTask = () => {
+const addTask = () => {
   if (input.trim()) {
-    // Always use today's date for tasks
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to start of day
-    
     const newTask: Task = {
       id: Date.now().toString(),
       text: input,
       done: false,
       createdAt: new Date(),
-      dueDate: today, // Always use today's date
+      dueDate: dueDate, // Use the selected dueDate, not today
       priority
     };
     setTasks([...tasks, newTask]);
     setInput("");
     setPriority("medium");
-    setDueDate(today);
+    // Don't reset dueDate to today here
   }
 };
 
@@ -209,24 +200,27 @@ const clearCompleted = () => {
     }
   };
 
-  const openCalendar = (mode: "add" | "edit") => {
-    setCalendarMode(mode);
-    if (mode === "add") {
-      setSelectedDate(dueDate);
-    } else {
-      setSelectedDate(editDueDate);
-    }
-    setShowCalendarModal(true);
-  };
+ const openCalendar = (mode: "add" | "edit") => {
+  setCalendarMode(mode);
+  if (mode === "add") {
+    setSelectedDate(new Date(dueDate)); // Use current dueDate
+  } else {
+    setSelectedDate(new Date(editDueDate)); // Use current editDueDate
+  }
+  setShowCalendarModal(true);
+};
 
-  const confirmDate = () => {
-    if (calendarMode === "add") {
-      setDueDate(selectedDate);
-    } else {
-      setEditDueDate(selectedDate);
-    }
-    setShowCalendarModal(false);
-  };
+ const confirmDate = () => {
+  const selectedDateWithTime = new Date(selectedDate);
+  selectedDateWithTime.setHours(12, 0, 0, 0); // Set to midday to avoid timezone issues
+  
+  if (calendarMode === "add") {
+    setDueDate(selectedDateWithTime);
+  } else {
+    setEditDueDate(selectedDateWithTime);
+  }
+  setShowCalendarModal(false);
+};
 
   const getDaysInMonth = (year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate();
@@ -290,41 +284,47 @@ const clearCompleted = () => {
   const completedCount = todaysTasks.filter(t => t.done).length;
   const totalCount = todaysTasks.length;
 
-  const renderTask = ({ item }: { item: Task }) => (
-    <TouchableOpacity
-      style={[
-        styles.taskItem,
-        item.done && styles.taskItemDone,
-        { borderLeftColor: getPriorityColor(item.priority) }
-      ]}
-      onPress={() => toggleTask(item.id)}
-      onLongPress={() => showTaskOptions(item)}
-      delayLongPress={300}
-    >
-      <View style={styles.taskContent}>
-        <View style={[styles.checkbox, item.done && styles.checkboxDone]}>
-          {item.done && <Text style={styles.checkmark}>✓</Text>}
-        </View>
-        <View style={styles.taskTextContainer}>
-          <Text style={[styles.taskText, item.done && styles.taskTextDone]}>
-            {item.text}
-          </Text>
-          <View style={styles.taskMeta}>
-            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
-              <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
-            </View>
+ const renderTask = ({ item }: { item: Task }) => (
+  <TouchableOpacity
+    style={[
+      styles.taskItem,
+      item.done && styles.taskItemDone,
+      { borderLeftColor: getPriorityColor(item.priority) }
+    ]}
+    onPress={() => toggleTask(item.id)}
+    // Remove this line: onLongPress={() => showTaskOptions(item)}
+    // Remove this line: delayLongPress={300}
+  >
+    <View style={styles.taskContent}>
+      <View style={[styles.checkbox, item.done && styles.checkboxDone]}>
+        {item.done && <Text style={styles.checkmark}>✓</Text>}
+      </View>
+      <View style={styles.taskTextContainer}>
+        <Text style={[styles.taskText, item.done && styles.taskTextDone]}>
+          {item.text}
+        </Text>
+        <View style={styles.taskMeta}>
+          <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
+            <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
           </View>
+          <Text style={styles.dateText}>
+            {new Date(item.dueDate).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric' 
+            })}
+          </Text>
         </View>
       </View>
-      
-      <TouchableOpacity 
-        style={styles.deleteButton} 
-        onPress={() => deleteTask(item.id)}
-      >
-        <Text style={styles.deleteText}>×</Text>
-      </TouchableOpacity>
+    </View>
+    
+    <TouchableOpacity 
+      style={styles.deleteButton} 
+      onPress={() => deleteTask(item.id)}
+    >
+      <Text style={styles.deleteText}>×</Text>
     </TouchableOpacity>
-  );
+  </TouchableOpacity>
+);
 
   return (
     <View style={styles.container}>
@@ -778,6 +778,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
+  dateText: {
+  color: "#666",
+  fontSize: 11,
+  marginLeft: 8,
+},
   deleteButton: {
     padding: 8,
     marginLeft: 10,
