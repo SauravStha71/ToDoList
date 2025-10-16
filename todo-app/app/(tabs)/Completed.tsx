@@ -19,6 +19,7 @@ interface Task {
   text: string;
   done: boolean;
   createdAt: Date;
+  completedAt?: Date;
   priority: "low" | "medium" | "high";
 }
 
@@ -30,15 +31,46 @@ export default function CompletedScreen() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // Function to delete tasks older than 24 hours
+  const deleteOldCompletedTasks = async () => {
+    try {
+      const tasksJson = await AsyncStorage.getItem("tasks");
+      if (tasksJson) {
+        const allTasks: Task[] = JSON.parse(tasksJson);
+        const now = new Date();
+        const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+        
+        const updatedTasks = allTasks.filter(task => {
+          if (!task.done) return true;
+          if (!task.completedAt) return true;
+          return new Date(task.completedAt) > twentyFourHoursAgo;
+        });
+
+        if (updatedTasks.length < allTasks.length) {
+          await AsyncStorage.setItem("tasks", JSON.stringify(updatedTasks));
+        }
+        
+        return updatedTasks;
+      }
+    } catch (error) {
+      console.error('Error deleting old tasks:', error);
+    }
+  };
+
   // Load completed tasks from storage and sort by priority
   const loadCompletedTasks = async () => {
     try {
+      // Clean up old tasks automatically
+      const updatedTasks = await deleteOldCompletedTasks();
+      
       const tasksJson = await AsyncStorage.getItem("tasks");
       if (tasksJson) {
         const allTasks: Task[] = JSON.parse(tasksJson).map((task: any) => ({
           ...task,
-          createdAt: new Date(task.createdAt)
+          createdAt: new Date(task.createdAt),
+          completedAt: task.completedAt ? new Date(task.completedAt) : undefined
         }));
+        
         const completed = allTasks.filter(task => task.done);
         
         // Sort by priority: high -> medium -> low
@@ -73,7 +105,7 @@ export default function CompletedScreen() {
       if (tasksJson) {
         const allTasks: Task[] = JSON.parse(tasksJson);
         const updatedTasks = allTasks.map(task =>
-          task.id === taskId ? { ...task, done: false } : task
+          task.id === taskId ? { ...task, done: false, completedAt: undefined } : task
         );
         await AsyncStorage.setItem("tasks", JSON.stringify(updatedTasks));
         await loadCompletedTasks();
@@ -229,7 +261,7 @@ export default function CompletedScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a1b23" />
       
-      {/* Header with better spacing */}
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Text style={styles.titleIcon}>🏆</Text>
@@ -247,7 +279,7 @@ export default function CompletedScreen() {
         </View>
       </View>
 
-      {/* Task List with better spacing */}
+      {/* Task List */}
       <FlatList
         data={completedTasks}
         keyExtractor={(item) => item.id}
