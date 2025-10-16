@@ -29,6 +29,10 @@ export default function Index() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editPriority, setEditPriority] = useState<"low" | "medium" | "high">("medium");
+  const [editModalVisible, setEditModalVisible] = useState(false);
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -85,6 +89,26 @@ export default function Index() {
   const showTaskOptions = (task: Task) => {
     setSelectedTask(task);
     setModalVisible(true);
+  };
+
+  const editTask = (task: Task) => {
+    setEditingTask(task);
+    setEditText(task.text);
+    setEditPriority(task.priority);
+    setEditModalVisible(true);
+  };
+
+  const saveEditedTask = () => {
+    if (editText.trim() && editingTask) {
+      setTasks(tasks.map(task =>
+        task.id === editingTask.id
+          ? { ...task, text: editText.trim(), priority: editPriority }
+          : task
+      ));
+      setEditModalVisible(false);
+      setEditingTask(null);
+      setEditText("");
+    }
   };
 
   const clearCompleted = () => {
@@ -259,6 +283,16 @@ export default function Index() {
             
             <View style={styles.modalButtons}>
               <TouchableOpacity 
+                style={[styles.modalButton, styles.editButton]}
+                onPress={() => {
+                  if (selectedTask) editTask(selectedTask);
+                  setModalVisible(false);
+                }}
+              >
+                <Text style={styles.modalButtonText}>Edit Task</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
                 style={[styles.modalButton, styles.toggleButton]}
                 onPress={() => {
                   if (selectedTask) toggleTask(selectedTask.id);
@@ -283,6 +317,70 @@ export default function Index() {
               <TouchableOpacity 
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Task Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Task</Text>
+            
+            <TextInput
+              placeholder="Edit your task..."
+              placeholderTextColor="#666"
+              value={editText}
+              onChangeText={setEditText}
+              style={styles.input}
+              multiline
+            />
+            
+            <View style={styles.prioritySelector}>
+              {(["low", "medium", "high"] as const).map((level) => (
+                <TouchableOpacity
+                  key={level}
+                  style={[
+                    styles.priorityOption,
+                    editPriority === level && { backgroundColor: getPriorityColor(level) }
+                  ]}
+                  onPress={() => setEditPriority(level)}
+                >
+                  <Text style={[
+                    styles.priorityOptionText,
+                    editPriority === level && styles.priorityOptionTextActive
+                  ]}>
+                    {getPriorityLabel(level)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={saveEditedTask}
+                disabled={!editText.trim()}
+              >
+                <Text style={styles.modalButtonText}>Save Changes</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setEditModalVisible(false);
+                  setEditingTask(null);
+                  setEditText("");
+                }}
               >
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -522,6 +620,12 @@ const styles = StyleSheet.create({
   },
   toggleButton: {
     backgroundColor: "#4834d4",
+  },
+  editButton: {
+    backgroundColor: "#3498db",
+  },
+  saveButton: {
+    backgroundColor: "#27ae60",
   },
   deleteModalButton: {
     backgroundColor: "#ff4757",
