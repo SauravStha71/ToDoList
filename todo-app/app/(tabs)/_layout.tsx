@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -24,10 +25,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="Completed"  // Capital C to match Completed.jsx
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Completed',
+          tabBarIcon: ({ color }) => <FontAwesome name="trophy" size={28} color={color} />,
         }}
       />
     </Tabs>
